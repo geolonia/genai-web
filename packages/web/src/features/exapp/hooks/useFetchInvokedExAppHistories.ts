@@ -47,9 +47,13 @@ export const useFetchInvokedExAppHistories = (teamId: string, exAppId: string) =
     },
   );
 
-  // [FORK_DIFF: geolonia/genai-web] SWR の refreshInterval 関数はマウント時に一度だけ評価される。
-  // フォーム送信後に mutate で ACCEPTED アイテムが出現しても polling は再起動しないため、
-  // data 変化を監視して active job がある間は手動でポーリングする。
+  // [FORK_DIFF: geolonia/genai-web] SWR v2.4.1 は refreshInterval=0 で polling が停止した後、
+  // キャッシュのみの変化（mutate 経由の data 更新）では polling タイマーを再スケジュールしない。
+  // そのため、フォーム送信後に ACCEPTED アイテムが出現しても上記の refreshInterval 設定だけでは
+  // polling が再起動しない。このブロックは data 変化を監視して手動で mutate を呼び出す。
+  // ★二重 polling 注意: refreshInterval: computeRefreshInterval が有効な interval を返している
+  //   間はこの useEffect と SWR 内部タイマーが並走する。upstream で polling 自動再起動が
+  //   サポートされた場合はこのブロックごと削除すること。
   useEffect(() => {
     const interval = computeRefreshInterval(swrResult.data);
     if (!interval) return;
