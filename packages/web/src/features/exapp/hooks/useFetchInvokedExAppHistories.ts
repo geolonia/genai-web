@@ -54,12 +54,16 @@ export const useFetchInvokedExAppHistories = (teamId: string, exAppId: string) =
   // ★二重 polling 注意: refreshInterval: computeRefreshInterval が有効な interval を返している
   //   間はこの useEffect と SWR 内部タイマーが並走する。upstream で polling 自動再起動が
   //   サポートされた場合はこのブロックごと削除すること。
+  // ★連続同値問題: SWR v2 は deep-equal 比較で data が変化なしと判断した場合に state 更新を
+  //   スキップするため [data] 依存だけではチェーンが途切れる。isValidating を依存に加えることで
+  //   poll 完了(isValidating false→false のトグル)を確実にトリガーとして使う。
   useEffect(() => {
+    if (swrResult.isValidating) return;
     const interval = computeRefreshInterval(swrResult.data);
     if (!interval) return;
     const timer = setTimeout(() => swrResult.mutate(), interval);
     return () => clearTimeout(timer);
-  }, [swrResult.data, swrResult.mutate]);
+  }, [swrResult.data, swrResult.isValidating, swrResult.mutate]);
 
   return swrResult;
 };
