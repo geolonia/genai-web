@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { ListInvokeExAppHistoriesResponse } from 'genai-web';
 import useSWRInfinite from 'swr/infinite';
 import { teamApiFetcher } from '@/lib/fetcher';
@@ -36,7 +37,7 @@ export const computeRefreshInterval = (
 };
 
 export const useFetchInvokedExAppHistories = (teamId: string, exAppId: string) => {
-  return useSWRInfinite<ListInvokeExAppHistoriesResponse>(
+  const swrResult = useSWRInfinite<ListInvokeExAppHistoriesResponse>(
     getExAppHistoriesKey(teamId, exAppId),
     teamApiFetcher,
     {
@@ -45,4 +46,16 @@ export const useFetchInvokedExAppHistories = (teamId: string, exAppId: string) =
       refreshInterval: computeRefreshInterval,
     },
   );
+
+  // [FORK_DIFF: geolonia/genai-web] SWR の refreshInterval 関数はマウント時に一度だけ評価される。
+  // フォーム送信後に mutate で ACCEPTED アイテムが出現しても polling は再起動しないため、
+  // data 変化を監視して active job がある間は手動でポーリングする。
+  useEffect(() => {
+    const interval = computeRefreshInterval(swrResult.data);
+    if (!interval) return;
+    const timer = setTimeout(() => swrResult.mutate(), interval);
+    return () => clearTimeout(timer);
+  }, [swrResult.data, swrResult.mutate]);
+
+  return swrResult;
 };
